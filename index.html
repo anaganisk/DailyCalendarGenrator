@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Calendar Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .calendar-day {
+            height: 297mm;
+            width: 210mm;
+            margin: 0 auto;
+            padding: 20mm;
+            box-sizing: border-box;
+            position: relative;
+        }
+        
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .print-area, .print-area * {
+                visibility: visible;
+            }
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+        
+        /* Custom checkbox styling */
+        .custom-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #3b82f6;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+            margin-right: 8px;
+        }
+        
+        .custom-checkbox:checked {
+            background-color: #3b82f6;
+        }
+        
+        .custom-checkbox:checked::after {
+            content: "✓";
+            position: absolute;
+            color: white;
+            font-size: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+            <h1 class="text-3xl font-bold text-center text-indigo-700 mb-6">Daily Calendar Generator</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- Date Range Selection -->
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                    <h2 class="text-xl font-semibold text-indigo-800 mb-4">Select Date Range</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                            <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                            <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <button id="generateRange" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200">Generate Calendar for Range</button>
+                    </div>
+                </div>
+                
+                <!-- Individual Date Selection -->
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                    <h2 class="text-xl font-semibold text-indigo-800 mb-4">Select Individual Dates</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Add Date</label>
+                            <div class="flex">
+                                <input type="date" id="singleDate" class="flex-grow px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <button id="addDate" class="bg-indigo-600 text-white py-2 px-4 rounded-r-md hover:bg-indigo-700 transition duration-200">Add</button>
+                            </div>
+                        </div>
+                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Selected Dates</h3>
+                            <div id="selectedDatesList" class="space-y-1">
+                                <!-- Dates will be added here -->
+                            </div>
+                        </div>
+                        <button id="generateIndividual" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200">Generate Calendar for Selected Dates</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Template Options -->
+            <div class="mb-6 bg-indigo-50 p-4 rounded-lg">
+                <h2 class="text-xl font-semibold text-indigo-800 mb-4">Template Options</h2>
+                <div class="flex items-center space-x-6">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="includeSchedule" class="custom-checkbox" checked>
+                        <span class="ml-2 text-gray-700">Include Schedule</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="includeNotes" class="custom-checkbox" checked>
+                        <span class="ml-2 text-gray-700">Include Notes</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Preview Section -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold text-indigo-800 mb-4">Calendar Preview</h2>
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div id="calendarPreview" class="space-y-4">
+                        <p class="text-gray-500 text-center">Your calendar will appear here after generation</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="flex flex-wrap justify-center gap-4">
+                <button id="printCalendar" class="bg-green-600 text-white py-2 px-6 rounded-md hover:bg-green-700 transition duration-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
+                    </svg>
+                    Print Calendar
+                </button>
+                <button id="exportPDF" class="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 transition duration-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Export as PDF
+                </button>
+                <button id="clearCalendar" class="bg-gray-600 text-white py-2 px-6 rounded-md hover:bg-gray-700 transition duration-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Clear Calendar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+        
+        // Selected dates array
+        let selectedDates = [];
+        
+        // DOM elements
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const generateRangeBtn = document.getElementById('generateRange');
+        const singleDateInput = document.getElementById('singleDate');
+        const addDateBtn = document.getElementById('addDate');
+        const selectedDatesList = document.getElementById('selectedDatesList');
+        const generateIndividualBtn = document.getElementById('generateIndividual');
+        const calendarPreview = document.getElementById('calendarPreview');
+        const printCalendarBtn = document.getElementById('printCalendar');
+        const exportPDFBtn = document.getElementById('exportPDF');
+        const clearCalendarBtn = document.getElementById('clearCalendar');
+        
+        // Set default dates (today and next week)
+        const today = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(today.getDate() + 7);
+        
+        startDateInput.valueAsDate = today;
+        endDateInput.valueAsDate = nextWeek;
+        singleDateInput.valueAsDate = today;
+        
+        // Event listeners
+        generateRangeBtn.addEventListener('click', generateRangeCalendar);
+        addDateBtn.addEventListener('click', addSingleDate);
+        generateIndividualBtn.addEventListener('click', generateIndividualCalendar);
+        printCalendarBtn.addEventListener('click', printCalendar);
+        exportPDFBtn.addEventListener('click', exportToPDF);
+        clearCalendarBtn.addEventListener('click', clearCalendar);
+        
+        // Generate calendar for date range
+        function generateRangeCalendar() {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            
+            if (startDate > endDate) {
+                alert('End date must be after start date');
+                return;
+            }
+            
+            selectedDates = [];
+            let currentDate = new Date(startDate);
+            
+            while (currentDate <= endDate) {
+                selectedDates.push(new Date(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            generateCalendarPreview();
+        }
+        
+        // Add single date to selection
+        function addSingleDate() {
+            const date = new Date(singleDateInput.value);
+            
+            // Check if date already exists
+            const exists = selectedDates.some(d => d.toDateString() === date.toDateString());
+            
+            if (!exists) {
+                selectedDates.push(date);
+                updateSelectedDatesList();
+            } else {
+                alert('This date is already selected');
+            }
+        }
+        
+        // Update the selected dates list UI
+        function updateSelectedDatesList() {
+            selectedDatesList.innerHTML = '';
+            
+            if (selectedDates.length === 0) {
+                selectedDatesList.innerHTML = '<p class="text-gray-500 text-sm">No dates selected</p>';
+                return;
+            }
+            
+            selectedDates.sort((a, b) => a - b);
+            
+            selectedDates.forEach((date, index) => {
+                const dateItem = document.createElement('div');
+                dateItem.className = 'flex items-center justify-between bg-white p-2 rounded border border-gray-200';
+                
+                const dateText = document.createElement('span');
+                dateText.className = 'text-sm';
+                dateText.textContent = formatDate(date);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 hover:text-red-700';
+                deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>';
+                deleteBtn.addEventListener('click', () => removeDate(index));
+                
+                dateItem.appendChild(dateText);
+                dateItem.appendChild(deleteBtn);
+                selectedDatesList.appendChild(dateItem);
+            });
+        }
+        
+        // Remove date from selection
+        function removeDate(index) {
+            selectedDates.splice(index, 1);
+            updateSelectedDatesList();
+        }
+        
+        // Generate calendar for individually selected dates
+        function generateIndividualCalendar() {
+            if (selectedDates.length === 0) {
+                alert('Please add at least one date');
+                return;
+            }
+            
+            generateCalendarPreview();
+        }
+        
+        // DOM elements for template options
+        const includeScheduleCheckbox = document.getElementById('includeSchedule');
+        const includeNotesCheckbox = document.getElementById('includeNotes');
+
+        // Generate the calendar preview
+        function generateCalendarPreview() {
+            if (selectedDates.length === 0) {
+                calendarPreview.innerHTML = '<p class="text-gray-500 text-center">Your calendar will appear here after generation</p>';
+                return;
+            }
+            
+            // Sort dates chronologically
+            selectedDates.sort((a, b) => a - b);
+            
+            calendarPreview.innerHTML = '';
+            
+            const includeSchedule = includeScheduleCheckbox.checked;
+            const includeNotes = includeNotesCheckbox.checked;
+            
+            selectedDates.forEach(date => {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day print-area bg-white rounded-lg shadow-md p-8 border border-gray-200';
+                
+                const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+                const dateString = formatDate(date);
+                
+                let contentHTML = '';
+                
+                if (!includeSchedule && !includeNotes) {
+                    // Blank page with just date and day
+                    contentHTML = `
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="text-center">
+                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
+                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (includeSchedule && includeNotes) {
+                    // Both schedule and notes
+                    contentHTML = `
+                        <div class="flex flex-col h-full">
+                            <div class="mb-8">
+                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
+                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
+                            </div>
+                            <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-4">
+                                    <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Schedule</h3>
+                                    <div class="space-y-3">
+                                        ${generateTimeSlots()}
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Notes</h3>
+                                    <div class="h-64 bg-gray-50 rounded-md p-4"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (includeSchedule) {
+                    // Only schedule
+                    contentHTML = `
+                        <div class="flex flex-col h-full">
+                            <div class="mb-8">
+                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
+                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
+                            </div>
+                            <div class="space-y-4 flex-grow">
+                                <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Schedule</h3>
+                                <div class="space-y-3">
+                                    ${generateTimeSlots()}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (includeNotes) {
+                    // Only notes
+                    contentHTML = `
+                        <div class="flex flex-col h-full">
+                            <div class="mb-8">
+                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
+                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
+                            </div>
+                            <div class="flex-grow space-y-4">
+                                <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Notes</h3>
+                                <div class="h-full bg-gray-50 rounded-md p-4 grid grid-rows-12 gap-2">
+                                    ${Array(25).fill('<div class="border-b border-gray-200"></div>').join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                dayElement.innerHTML = contentHTML + `
+                    <div class="mt-8 pt-4 border-t text-sm text-gray-500">
+                        <p>Daily Calendar Generator - ${new Date().getFullYear()}</p>
+                    </div>
+                `;
+                
+                calendarPreview.appendChild(dayElement);
+            });
+        }
+        
+        // Generate time slots for the schedule section
+        function generateTimeSlots() {
+            let html = '';
+            for (let hour = 8; hour <= 20; hour++) {
+                const time = `${hour}:00 - ${hour + 1}:00`;
+                html += `
+                    <div class="flex items-center">
+                        <div class="w-24 font-medium text-gray-700">${time}</div>
+                        <div class="flex-grow h-8 border-b border-gray-200"></div>
+                    </div>
+                `;
+            }
+            return html;
+        }
+        
+        // Format date as "Month Day, Year" (e.g., "January 1, 2023")
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+        
+        // Print the calendar
+        function printCalendar() {
+            if (selectedDates.length === 0) {
+                alert('No calendar generated to print');
+                return;
+            }
+            
+            const printContents = calendarPreview.innerHTML;
+            const originalContents = document.body.innerHTML;
+            
+            document.body.innerHTML = printContents;
+            window.print();
+            document.body.innerHTML = originalContents;
+            
+            // Reattach event listeners
+            generateRangeBtn.addEventListener('click', generateRangeCalendar);
+            addDateBtn.addEventListener('click', addSingleDate);
+            generateIndividualBtn.addEventListener('click', generateIndividualCalendar);
+            printCalendarBtn.addEventListener('click', printCalendar);
+            exportPDFBtn.addEventListener('click', exportToPDF);
+            clearCalendarBtn.addEventListener('click', clearCalendar);
+        }
+        
+        // Export calendar to PDF
+        async function exportToPDF() {
+            if (selectedDates.length === 0) {
+                alert('No calendar generated to export');
+                return;
+            }
+            
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const calendarDays = document.querySelectorAll('.calendar-day');
+            
+            for (let i = 0; i < calendarDays.length; i++) {
+                const day = calendarDays[i];
+                
+                // Use html2canvas to capture the day as an image
+                const canvas = await html2canvas(day, {
+                    scale: 2,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Add the image to the PDF
+                if (i > 0) {
+                    pdf.addPage();
+                }
+                
+                // Calculate dimensions to fit A4
+                const imgWidth = 210; // A4 width in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            }
+            
+            // Save the PDF
+            pdf.save('daily-calendar.pdf');
+        }
+        
+        // Clear the calendar
+        function clearCalendar() {
+            selectedDates = [];
+            updateSelectedDatesList();
+            calendarPreview.innerHTML = '<p class="text-gray-500 text-center">Your calendar will appear here after generation</p>';
+        }
+        
+        // Initialize
+        updateSelectedDatesList();
+    </script>
+</body>
+</html>
