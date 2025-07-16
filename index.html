@@ -3,503 +3,742 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Calendar Generator</title>
+    <title>Printable Calendar Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Playfair+Display:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600&display=swap');
         
-        body {
-            font-family: 'Montserrat', sans-serif;
-        }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .font-roboto { font-family: 'Roboto', sans-serif; }
+        .font-playfair { font-family: 'Playfair Display', serif; }
+        .font-montserrat { font-family: 'Montserrat', sans-serif; }
         
-        .calendar-day {
-            height: 297mm;
-            width: 210mm;
-            margin: 0 auto;
-            padding: 20mm;
-            box-sizing: border-box;
+        .moon-phase {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
             position: relative;
+            overflow: hidden;
         }
         
         @media print {
-            body * {
-                visibility: hidden;
+            .no-print {
+                display: none !important;
             }
-            .print-area, .print-area * {
-                visibility: visible;
+            body {
+                background: white !important;
+                color: black !important;
             }
-            .print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
+            .calendar-print {
+                break-inside: avoid;
             }
-        }
-        
-        /* Custom checkbox styling */
-        .custom-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #3b82f6;
-            border-radius: 4px;
-            cursor: pointer;
-            position: relative;
-            margin-right: 8px;
-        }
-        
-        .custom-checkbox:checked {
-            background-color: #3b82f6;
-        }
-        
-        .custom-checkbox:checked::after {
-            content: "✓";
-            position: absolute;
-            color: white;
-            font-size: 14px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            .daily-page {
+                page-break-after: always;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
-            <h1 class="text-3xl font-bold text-center text-indigo-700 mb-6">Daily Calendar Generator</h1>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <!-- Date Range Selection -->
-                <div class="bg-indigo-50 p-4 rounded-lg">
-                    <h2 class="text-xl font-semibold text-indigo-800 mb-4">Select Date Range</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                            <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                            <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-                        <button id="generateRange" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200">Generate Calendar for Range</button>
+<body class="bg-gray-100 font-inter" x-data="calendarApp()">
+    <div class="container mx-auto p-4 max-w-6xl">
+        <!-- Header -->
+        <header class="bg-white rounded-lg shadow-md p-6 mb-6 no-print">
+            <h1 class="text-3xl font-bold text-center text-indigo-700">Printable Calendar Generator</h1>
+            <p class="text-gray-600 text-center mt-2">Create custom printable calendars with your preferred layout and design</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Configuration Panel -->
+            <div class="w-full lg:w-1/3 bg-white rounded-lg shadow-md p-6 no-print" x-show="!generating">
+                <h2 class="text-xl font-semibold mb-4 text-indigo-700">Calendar Settings</h2>
+                
+                <!-- View Mode Selection -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">View Mode</h3>
+                    <div class="flex gap-4">
+                        <button @click="viewMode = 'monthly'" 
+                                :class="viewMode === 'monthly' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                class="px-4 py-2 rounded-md transition">
+                            Monthly
+                        </button>
+                        <button @click="viewMode = 'daily'" 
+                                :class="viewMode === 'daily' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                class="px-4 py-2 rounded-md transition">
+                            Daily
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Individual Date Selection -->
-                <div class="bg-indigo-50 p-4 rounded-lg">
-                    <h2 class="text-xl font-semibold text-indigo-800 mb-4">Select Individual Dates</h2>
-                    <div class="space-y-4">
+                <!-- Date Range -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">Date Range</h3>
+                    <template x-if="viewMode === 'monthly'">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm mb-1">Start Month</label>
+                                <input type="month" x-model="startMonth" class="w-full p-2 border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-1">End Month</label>
+                                <input type="month" x-model="endMonth" class="w-full p-2 border rounded-md">
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="viewMode === 'daily'">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm mb-1">Start Date</label>
+                                <input type="date" x-model="startDate" class="w-full p-2 border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-1">End Date</label>
+                                <input type="date" x-model="endDate" class="w-full p-2 border rounded-md">
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- Layout Settings -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">Layout Settings</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Add Date</label>
-                            <div class="flex">
-                                <input type="date" id="singleDate" class="flex-grow px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                                <button id="addDate" class="bg-indigo-600 text-white py-2 px-4 rounded-r-md hover:bg-indigo-700 transition duration-200">Add</button>
-                            </div>
+                            <label class="block text-sm mb-1">Week Starts On</label>
+                            <select x-model="weekStartsOn" class="w-full p-2 border rounded-md">
+                                <option value="0">Sunday</option>
+                                <option value="1">Monday</option>
+                            </select>
                         </div>
-                        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
-                            <h3 class="text-sm font-medium text-gray-700 mb-2">Selected Dates</h3>
-                            <div id="selectedDatesList" class="space-y-1">
-                                <!-- Dates will be added here -->
-                            </div>
+                        <div>
+                            <label class="block text-sm mb-1">Orientation</label>
+                            <select x-model="orientation" class="w-full p-2 border rounded-md">
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
                         </div>
-                        <button id="generateIndividual" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200">Generate Calendar for Selected Dates</button>
                     </div>
+                    <div>
+                        <label class="block text-sm mb-1">Layout Style</label>
+                        <select x-model="layoutStyle" class="w-full p-2 border rounded-md">
+                            <option value="minimalist">Minimalist</option>
+                            <option value="detailed">Detailed</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Daily View Options -->
+                <template x-if="viewMode === 'daily'">
+                    <div class="mb-6">
+                        <h3 class="font-medium mb-2">Daily View Options</h3>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" x-model="showQuote" class="mr-2">
+                            <span>Show Daily Quote</span>
+                        </label>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" x-model="showMoonPhase" class="mr-2">
+                            <span>Show Moon Phase</span>
+                        </label>
+                        <div class="mt-3">
+                            <label class="block text-sm mb-1">Time Format</label>
+                            <select x-model="timeFormat" class="w-full p-2 border rounded-md">
+                                <option value="24h">24-hour</option>
+                                <option value="AM/PM">12-hour (AM/PM)</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-3">
+                            <div>
+                                <label class="block text-sm mb-1">Start Time</label>
+                                <input type="time" x-model="startTime" class="w-full p-2 border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm mb-1">End Time</label>
+                                <input type="time" x-model="endTime" class="w-full p-2 border rounded-md">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="block text-sm mb-1">Time Interval (minutes)</label>
+                            <select x-model="timeInterval" class="w-full p-2 border rounded-md">
+                                <option value="15">15</option>
+                                <option value="30">30</option>
+                                <option value="60">60</option>
+                            </select>
+                        </div>
+                        <div class="mt-3">
+                            <label class="block text-sm mb-1">Content Sections</label>
+                            <select x-model="dailyContent" class="w-full p-2 border rounded-md">
+                                <option value="both">Schedule + Notes</option>
+                                <option value="schedule">Schedule Only</option>
+                                <option value="notes">Notes Only</option>
+                                <option value="none">Empty Lines Only</option>
+                            </select>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Monthly View Options -->
+                <template x-if="viewMode === 'monthly'">
+                    <div class="mb-6">
+                        <h3 class="font-medium mb-2">Monthly View Options</h3>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" x-model="showHolidays" class="mr-2">
+                            <span>Show Holidays</span>
+                        </label>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" x-model="showMoonPhases" class="mr-2">
+                            <span>Show Moon Phases</span>
+                        </label>
+                        <div class="mt-3">
+                            <label class="block text-sm mb-1">Country for Holidays</label>
+                            <select x-model="country" class="w-full p-2 border rounded-md">
+                                <option value="US">United States</option>
+                                <option value="GB">United Kingdom</option>
+                                <option value="CA">Canada</option>
+                                <option value="AU">Australia</option>
+                                <option value="DE">Germany</option>
+                                <option value="FR">France</option>
+                                <option value="JP">Japan</option>
+                            </select>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Theme Customization -->
+                <div class="mb-6">
+                    <h3 class="font-medium mb-2">Theme</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block text-sm mb-1">Font Family</label>
+                            <select x-model="fontFamily" class="w-full p-2 border rounded-md">
+                                <option value="font-inter">Inter</option>
+                                <option value="font-roboto">Roboto</option>
+                                <option value="font-playfair">Playfair Display</option>
+                                <option value="font-montserrat">Montserrat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1">Font Size</label>
+                            <select x-model="fontSize" class="w-full p-2 border rounded-md">
+                                <option value="text-sm">Small</option>
+                                <option value="text-base">Medium</option>
+                                <option value="text-lg">Large</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block text-sm mb-1">Text Color</label>
+                            <input type="color" x-model="textColor" class="w-full h-10">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-1">Grid Color</label>
+                            <input type="color" x-model="gridColor" class="w-full h-10">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-1">Background Color</label>
+                        <input type="color" x-model="backgroundColor" class="w-full h-10">
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-sm mb-1">Theme Presets</label>
+                        <div class="flex gap-2 mt-1">
+                            <button @click="applyTheme('default')" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs">Default</button>
+                            <button @click="applyTheme('dark')" class="px-3 py-1 bg-gray-800 text-white rounded text-xs">Dark</button>
+                            <button @click="applyTheme('pastel')" class="px-3 py-1 bg-pink-200 text-pink-800 rounded text-xs">Pastel</button>
+                            <button @click="applyTheme('grayscale')" class="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs">Grayscale</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Generate Button -->
+                <div class="flex justify-between">
+                    <button @click="resetSettings" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition">
+                        Reset
+                    </button>
+                    <button @click="generateCalendar" class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+                        Generate Calendar
+                    </button>
                 </div>
             </div>
             
-            <!-- Template Options -->
-            <div class="mb-6 bg-indigo-50 p-4 rounded-lg">
-                <h2 class="text-xl font-semibold text-indigo-800 mb-4">Template Options</h2>
-                <div class="flex items-center space-x-6">
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" id="includeSchedule" class="custom-checkbox" checked>
-                        <span class="ml-2 text-gray-700">Include Schedule</span>
-                    </label>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" id="includeNotes" class="custom-checkbox" checked>
-                        <span class="ml-2 text-gray-700">Include Notes</span>
-                    </label>
+            <!-- Calendar Preview/Output -->
+            <div class="w-full lg:w-2/3 flex flex-col gap-4">
+                <div class="no-print flex justify-between items-center mb-2">
+                    <h2 class="text-xl font-semibold text-indigo-700">Preview</h2>
+                    <button x-show="generating" @click="backToSettings" class="px-4 py-2 bg-indigo-600 text-white rounded-md">
+                        Back to Settings
+                    </button>
                 </div>
-            </div>
-
-            <!-- Preview Section -->
-            <div class="mb-8">
-                <h2 class="text-xl font-semibold text-indigo-800 mb-4">Calendar Preview</h2>
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div id="calendarPreview" class="space-y-4">
-                        <p class="text-gray-500 text-center">Your calendar will appear here after generation</p>
+                
+                <!-- Calendar Output Container -->
+                <div class="bg-white p-4 rounded-lg shadow-md overflow-auto">
+                    <!-- Loading State -->
+                    <div x-show="loading" class="text-center py-10">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                        <p>Generating calendar...</p>
+                    </div>
+                    
+                    <!-- Calendar Output -->
+                    <div x-show="!loading" x-bind:class="[fontFamily, orientation === 'landscape' ? '' : 'max-w-2xl mx-auto', fontSize]">
+                        <!-- Monthly Calendar -->
+                        <template x-if="viewMode === 'monthly' && generating">
+                            <div x-html="monthlyCalendarHTML" class="calendar-print"></div>
+                        </template>
+                        
+                        <!-- Daily Calendar -->
+                        <template x-if="viewMode === 'daily' && generating">
+                            <div x-html="dailyCalendarHTML" class="calendar-print"></div>
+                        </template>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Export Options -->
-            <div class="flex flex-wrap justify-center gap-4">
-                <button id="printCalendar" class="bg-green-600 text-white py-2 px-6 rounded-md hover:bg-green-700 transition duration-200 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" />
-                    </svg>
-                    Print Calendar
-                </button>
-                <button id="exportPDF" class="bg-red-600 text-white py-2 px-6 rounded-md hover:bg-red-700 transition duration-200 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                    Export as PDF
-                </button>
-                <button id="clearCalendar" class="bg-gray-600 text-white py-2 px-6 rounded-md hover:bg-gray-700 transition duration-200 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                    Clear Calendar
-                </button>
+                
+                <!-- Print/Export Buttons -->
+                <div x-show="generating && !loading" class="no-print flex gap-4 justify-end">
+                    <button @click="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button @click="exportToPDF" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize jsPDF
-        const { jsPDF } = window.jspdf;
-        
-        // Selected dates array
-        let selectedDates = [];
-        
-        // DOM elements
-        const startDateInput = document.getElementById('startDate');
-        const endDateInput = document.getElementById('endDate');
-        const generateRangeBtn = document.getElementById('generateRange');
-        const singleDateInput = document.getElementById('singleDate');
-        const addDateBtn = document.getElementById('addDate');
-        const selectedDatesList = document.getElementById('selectedDatesList');
-        const generateIndividualBtn = document.getElementById('generateIndividual');
-        const calendarPreview = document.getElementById('calendarPreview');
-        const printCalendarBtn = document.getElementById('printCalendar');
-        const exportPDFBtn = document.getElementById('exportPDF');
-        const clearCalendarBtn = document.getElementById('clearCalendar');
-        
-        // Set default dates (today and next week)
-        const today = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(today.getDate() + 7);
-        
-        startDateInput.valueAsDate = today;
-        endDateInput.valueAsDate = nextWeek;
-        singleDateInput.valueAsDate = today;
-        
-        // Event listeners
-        generateRangeBtn.addEventListener('click', generateRangeCalendar);
-        addDateBtn.addEventListener('click', addSingleDate);
-        generateIndividualBtn.addEventListener('click', generateIndividualCalendar);
-        printCalendarBtn.addEventListener('click', printCalendar);
-        exportPDFBtn.addEventListener('click', exportToPDF);
-        clearCalendarBtn.addEventListener('click', clearCalendar);
-        
-        // Generate calendar for date range
-        function generateRangeCalendar() {
-            const startDate = new Date(startDateInput.value);
-            const endDate = new Date(endDateInput.value);
-            
-            if (startDate > endDate) {
-                alert('End date must be after start date');
-                return;
-            }
-            
-            selectedDates = [];
-            let currentDate = new Date(startDate);
-            
-            while (currentDate <= endDate) {
-                selectedDates.push(new Date(currentDate));
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            
-            generateCalendarPreview();
-        }
-        
-        // Add single date to selection
-        function addSingleDate() {
-            const date = new Date(singleDateInput.value);
-            
-            // Check if date already exists
-            const exists = selectedDates.some(d => d.toDateString() === date.toDateString());
-            
-            if (!exists) {
-                selectedDates.push(date);
-                updateSelectedDatesList();
-            } else {
-                alert('This date is already selected');
-            }
-        }
-        
-        // Update the selected dates list UI
-        function updateSelectedDatesList() {
-            selectedDatesList.innerHTML = '';
-            
-            if (selectedDates.length === 0) {
-                selectedDatesList.innerHTML = '<p class="text-gray-500 text-sm">No dates selected</p>';
-                return;
-            }
-            
-            selectedDates.sort((a, b) => a - b);
-            
-            selectedDates.forEach((date, index) => {
-                const dateItem = document.createElement('div');
-                dateItem.className = 'flex items-center justify-between bg-white p-2 rounded border border-gray-200';
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('calendarApp', () => ({
+                // View Mode
+                viewMode: 'monthly',
                 
-                const dateText = document.createElement('span');
-                dateText.className = 'text-sm';
-                dateText.textContent = formatDate(date);
+                // Date Range
+                startDate: new Date().toISOString().split('T')[0],
+                endDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0],
+                startMonth: new Date().toISOString().slice(0, 7),
+                endMonth: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 7),
                 
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'text-red-500 hover:text-red-700';
-                deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>';
-                deleteBtn.addEventListener('click', () => removeDate(index));
+                // Layout Settings
+                weekStartsOn: '0',
+                orientation: 'portrait',
+                layoutStyle: 'minimalist',
                 
-                dateItem.appendChild(dateText);
-                dateItem.appendChild(deleteBtn);
-                selectedDatesList.appendChild(dateItem);
-            });
-        }
-        
-        // Remove date from selection
-        function removeDate(index) {
-            selectedDates.splice(index, 1);
-            updateSelectedDatesList();
-        }
-        
-        // Generate calendar for individually selected dates
-        function generateIndividualCalendar() {
-            if (selectedDates.length === 0) {
-                alert('Please add at least one date');
-                return;
-            }
-            
-            generateCalendarPreview();
-        }
-        
-        // DOM elements for template options
-        const includeScheduleCheckbox = document.getElementById('includeSchedule');
-        const includeNotesCheckbox = document.getElementById('includeNotes');
-
-        // Generate the calendar preview
-        function generateCalendarPreview() {
-            if (selectedDates.length === 0) {
-                calendarPreview.innerHTML = '<p class="text-gray-500 text-center">Your calendar will appear here after generation</p>';
-                return;
-            }
-            
-            // Sort dates chronologically
-            selectedDates.sort((a, b) => a - b);
-            
-            calendarPreview.innerHTML = '';
-            
-            const includeSchedule = includeScheduleCheckbox.checked;
-            const includeNotes = includeNotesCheckbox.checked;
-            
-            selectedDates.forEach(date => {
-                const dayElement = document.createElement('div');
-                dayElement.className = 'calendar-day print-area bg-white rounded-lg shadow-md p-8 border border-gray-200';
+                // Daily View Options
+                showQuote: true,
+                showMoonPhase: true,
+                timeFormat: '24h',
+                startTime: '08:00',
+                endTime: '18:00',
+                timeInterval: '30',
+                dailyContent: 'both',
                 
-                const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateString = formatDate(date);
+                // Monthly View Options
+                showHolidays: true,
+                showMoonPhases: true,
+                country: 'US',
                 
-                let contentHTML = '';
+                // Theme Settings
+                fontFamily: 'font-inter',
+                fontSize: 'text-base',
+                textColor: '#3f3844',
+                gridColor: '#e2e8f0',
+                backgroundColor: '#ffffff',
                 
-                if (!includeSchedule && !includeNotes) {
-                    // Blank page with just date and day
-                    contentHTML = `
-                        <div class="flex flex-col items-center justify-center h-full">
-                            <div class="text-center">
-                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
-                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
-                            </div>
-                        </div>
-                    `;
-                } else if (includeSchedule && includeNotes) {
-                    // Both schedule and notes
-                    contentHTML = `
-                        <div class="flex flex-col h-full">
-                            <div class="mb-8">
-                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
-                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
-                            </div>
-                            <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="space-y-4">
-                                    <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Schedule</h3>
-                                    <div class="space-y-3">
-                                        ${generateTimeSlots()}
+                // State
+                generating: false,
+                loading: false,
+                monthlyCalendarHTML: '',
+                dailyCalendarHTML: '',
+                quotes: [
+                    "The only limit to our realization of tomorrow is our doubts of today. — Franklin D. Roosevelt",
+                    "Success is not final, failure is not fatal: It is the courage to continue that counts. — Winston Churchill",
+                    "The future depends on what you do today. — Mahatma Gandhi",
+                    "Believe you can and you're halfway there. — Theodore Roosevelt",
+                    "Strive not to be a success, but rather to be of value. — Albert Einstein"
+                ],
+                holidays: {
+                    US: {
+                        '01-01': "New Year's Day",
+                        '01-16': "Martin Luther King Jr. Day",
+                        '02-20': "Presidents' Day",
+                        '05-29': "Memorial Day",
+                        '07-04': "Independence Day",
+                        '09-04': "Labor Day",
+                        '10-09': "Columbus Day",
+                        '11-11': "Veterans Day",
+                        '11-23': "Thanksgiving",
+                        '12-25': "Christmas Day"
+                    },
+                    GB: {
+                        '01-01': "New Year's Day",
+                        '04-07': "Good Friday",
+                        '04-10': "Easter Monday",
+                        '05-01': "Early May Bank Holiday",
+                        '05-29': "Spring Bank Holiday",
+                        '08-28': "Summer Bank Holiday",
+                        '12-25': "Christmas Day",
+                        '12-26': "Boxing Day"
+                    },
+                    CA: {
+                        '01-01': "New Year's Day",
+                        '02-20': "Family Day",
+                        '04-07': "Good Friday",
+                        '05-22': "Victoria Day",
+                        '07-01': "Canada Day",
+                        '09-04': "Labour Day",
+                        '10-09': "Thanksgiving",
+                        '11-11': "Remembrance Day",
+                        '12-25': "Christmas Day"
+                    }
+                },
+                
+                // Methods
+                generateCalendar() {
+                    this.loading = true;
+                    this.generating = true;
+                    
+                    if (this.viewMode === 'monthly') {
+                        this.generateMonthlyCalendar();
+                    } else {
+                        this.generateDailyCalendar();
+                    }
+                    
+                    setTimeout(() => {
+                        this.loading = false;
+                        // Scroll to top of calendar output
+                        document.querySelector('[x-html]').scrollIntoView({ behavior: 'smooth' });
+                    }, 500);
+                },
+                
+                generateMonthlyCalendar() {
+                    let html = '';
+                    const months = this.getMonthsBetween(this.startMonth, this.endMonth);
+                    
+                    months.forEach(month => {
+                        const year = month.getFullYear();
+                        const monthName = month.toLocaleString('default', { month: 'long' });
+                        const daysInMonth = new Date(year, month.getMonth() + 1, 0).getDate();
+                        const firstDay = new Date(year, month.getMonth(), 1).getDay();
+                        const adjust = this.weekStartsOn === '0' ? 0 : 1;
+                        const startDay = (firstDay - adjust + 7) % 7;
+                        
+                        // Calendar wrapper with page settings
+                        html += `
+                            <div class="calendar-page mb-8 ${this.orientation === 'landscape' ? 'flex' : ''}" 
+                                 style="color: ${this.textColor}; background-color: ${this.backgroundColor};">
+                                <div class="${this.orientation === 'landscape' ? 'w-1/2' : ''}">
+                                    <h2 class="text-2xl font-bold mb-4 text-center">${monthName} ${year}</h2>
+                                    <table class="w-full" style="border-color: ${this.gridColor};">
+                                        <thead>
+                                            <tr>
+                                                ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].slice(adjust, 7).concat(adjust ? ['Sun'] : []).map(day => 
+                                                    `<th class="py-2 border-b-2 font-medium" style="border-color: ${this.gridColor};">${day}</th>`
+                                                ).join('')}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        let day = 1;
+                        let isFirstWeek = true;
+                        
+                        for (let i = 0; i < 6; i++) {
+                            if (day > daysInMonth) break;
+                            
+                            html += '<tr>';
+                            
+                            for (let j = 0; j < 7; j++) {
+                                if (isFirstWeek && j < startDay) {
+                                    html += '<td class="border" style="border-color: ${this.gridColor};"></td>';
+                                } else if (day > daysInMonth) {
+                                    html += '<td class="border" style="border-color: ${this.gridColor};"></td>';
+                                } else {
+                                    const currentDate = new Date(year, month.getMonth(), day);
+                                    const dateStr = `${String(day).padStart(2, '0')}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+                                    const isWeekend = [0, 6].includes(currentDate.getDay());
+                                    const isHoliday = this.showHolidays && this.holidays[this.country] && this.holidays[this.country][dateStr];
+                                    const moonPhase = this.getMoonPhase(currentDate);
+                                    
+                                    html += `
+                                        <td class="border p-1 ${isWeekend ? 'bg-opacity-10 bg-gray-300' : ''} 
+                                            ${this.layoutStyle === 'detailed' ? 'h-32' : 'h-40'}" 
+                                            style="border-color: ${this.gridColor};">
+                                            <div class="h-full flex flex-col">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="font-medium">${day}</span>
+                                                    ${this.showMoonPhases ? `
+                                                        <div class="moon-phase ${moonPhase.class}" 
+                                                             style="background: ${moonPhase.background}; ${moonPhase.border ? 'border: 1px solid ' + this.textColor : ''}"></div>
+                                                    ` : ''}
+                                                </div>
+                                                ${isHoliday ? `<div class="text-xs text-red-500">${isHoliday}</div>` : ''}
+                                                <div class="flex-1 ${this.layoutStyle === 'detailed' ? 'py-1 overflow-hidden' : ''}">
+                                                    ${Array.from({length: this.layoutStyle === 'detailed' ? 5 : 8}, (_, i) => 
+                                                        `<div class="text-xs h-4 my-px" 
+                                                              style="border-bottom: ${this.layoutStyle === 'detailed' ? '1px dashed ' + this.gridColor : 'none'}">
+                                                         </div>`
+                                                    ).join('')}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    `;
+                                    day++;
+                                }
+                            }
+                            
+                            html += '</tr>';
+                            isFirstWeek = false;
+                        }
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                                ${this.orientation === 'landscape' ? `
+                                <div class="w-1/2 pl-4">
+                                    <h3 class="text-lg font-semibold mb-2">Notes for ${monthName}</h3>
+                                    <div class="border rounded p-2 h-full"
+                                         style="border-color: ${this.gridColor}; min-height: 300px;">
+                                        ${Array.from({length: 30}, () => 
+                                            `<div class="h-6 border-b" style="border-color: ${this.gridColor};"></div>`
+                                        ).join('')}
                                     </div>
                                 </div>
-                                <div class="space-y-4">
-                                    <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Notes</h3>
-                                    <div class="h-64 bg-gray-50 rounded-md p-4"></div>
+                                ` : ''}
+                            </div>
+                        `;
+                        
+                        if (this.orientation === 'portrait') {
+                            html += '<div class="page-break"></div>';
+                        }
+                    });
+                    
+                    this.monthlyCalendarHTML = html;
+                },
+                
+                generateDailyCalendar() {
+                    let html = '';
+                    const days = this.getDaysBetween(this.startDate, this.endDate);
+                    
+                    days.forEach((day, index) => {
+                        const date = new Date(day);
+                        const dayName = date.toLocaleDateString('default', { weekday: 'long' });
+                        const dateStr = `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        const isHoliday = this.showHolidays && this.holidays[this.country] && this.holidays[this.country][dateStr];
+                        const moonPhase = this.getMoonPhase(date);
+                        const startTime = parseInt(this.startTime.split(':')[0]);
+                        const endTime = parseInt(this.endTime.split(':')[0]);
+                        const interval = parseInt(this.timeInterval);
+                        const timeSlots = [];
+                        
+                        // Create time slots
+                        for (let hour = startTime; hour <= endTime; hour++) {
+                            for (let minute = 0; minute < 60; minute += interval) {
+                                const timeStr = this.timeFormat === '24h' 
+                                    ? `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+                                    : `${(hour > 12 ? hour - 12 : hour).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+                                timeSlots.push(timeStr);
+                            }
+                        }
+                        
+                        html += `
+                            <div class="daily-page mb-8 p-4" style="color: ${this.textColor}; background-color: ${this.backgroundColor};">
+                                ${this.showQuote ? `
+                                    <div class="text-center italic mb-2">
+                                        ${this.quotes[Math.floor(Math.random() * this.quotes.length)]}
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="text-center mb-4">
+                                    <h2 class="text-3xl font-bold">${date.getDate()} ${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()}</h2>
+                                    <h3 class="text-xl">${dayName}</h3>
+                                    ${isHoliday ? `<div class="text-red-500 mt-1">${isHoliday}</div>` : ''}
+                                    ${this.showMoonPhase ? `
+                                        <div class="mt-2 flex justify-center items-center gap-2">
+                                            <span class="text-sm">Moon:</span>
+                                            <div class="moon-phase ${moonPhase.class}" 
+                                                 style="background: ${moonPhase.background}; ${moonPhase.border ? 'border: 1px solid ' + this.textColor : ''}"></div>
+                                            <span class="text-sm">${moonPhase.name}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                
+                                ${this.dailyContent !== 'none' ? `
+                                    <div class="flex ${this.dailyContent === 'both' ? 'gap-4 flex-col md:flex-row' : ''}">
+                                        ${this.dailyContent !== 'notes' ? `
+                                            <div class="${this.dailyContent === 'both' ? 'md:w-1/2' : 'w-full'}">
+                                                <h4 class="font-semibold mb-2 border-b pb-1" style="border-color: ${this.gridColor};">Schedule</h4>
+                                                <table class="w-full">
+                                                    ${timeSlots.map(time => `
+                                                        <tr class="h-8">
+                                                            <td class="w-16 align-top font-mono" style="border-color: ${this.gridColor};">
+                                                                ${time}
+                                                            </td>
+                                                            <td style="border-bottom: ${this.layoutStyle === 'detailed' ? '1px dashed ' + this.gridColor : 'none'};">
+                                                            </td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </table>
+                                            </div>
+                                        ` : ''}
+                                        
+                                        ${this.dailyContent !== 'schedule' ? `
+                                            <div class="${this.dailyContent === 'both' ? 'md:w-1/2' : 'w-full'}">
+                                                <h4 class="font-semibold mb-2 border-b pb-1" style="border-color: ${this.gridColor};">Notes</h4>
+                                                <div style="min-height: ${timeSlots.length * 32}px;">
+                                                    ${Array.from({length: Math.floor(timeSlots.length / 2)}, () => `
+                                                        <div class="h-8 border-b" style="border-color: ${this.gridColor};"></div>
+                                                    `).join('')}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                ` : `
+                                    <div style="min-height: 400px;" class="border rounded" style="border-color: ${this.gridColor};">
+                                        ${Array.from({length: 25}, () => `
+                                            <div class="h-8 border-b" style="border-color: ${this.gridColor};"></div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                                
+                                <div class="mt-4 text-xs text-right">
+                                    Page ${index + 1} of ${days.length}
                                 </div>
                             </div>
-                        </div>
-                    `;
-                } else if (includeSchedule) {
-                    // Only schedule
-                    contentHTML = `
-                        <div class="flex flex-col h-full">
-                            <div class="mb-8">
-                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
-                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
-                            </div>
-                            <div class="space-y-4 flex-grow">
-                                <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Schedule</h3>
-                                <div class="space-y-3">
-                                    ${generateTimeSlots()}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else if (includeNotes) {
-                    // Only notes
-                    contentHTML = `
-                        <div class="flex flex-col h-full">
-                            <div class="mb-8">
-                                <div class="text-6xl font-bold text-indigo-800">${dayOfWeek}</div>
-                                <div class="text-4xl font-semibold text-gray-700 mt-2">${dateString}</div>
-                            </div>
-                            <div class="flex-grow space-y-4">
-                                <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Notes</h3>
-                                <div class="h-full bg-gray-50 rounded-md p-4 grid grid-rows-12 gap-2">
-                                    ${Array(25).fill('<div class="border-b border-gray-200"></div>').join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                            <div class="page-break"></div>
+                        `;
+                    });
+                    
+                    this.dailyCalendarHTML = html;
+                },
+                
+                getDaysBetween(startDate, endDate) {
+                    const dates = [];
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    
+                    while (start <= end) {
+                        dates.push(new Date(start));
+                        start.setDate(start.getDate() + 1);
+                    }
+                    
+                    return dates;
+                },
+                
+                getMonthsBetween(startMonth, endMonth) {
+                    const months = [];
+                    const [startYear, startMonthNum] = startMonth.split('-').map(Number);
+                    const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+                    
+                    let currentMonth = new Date(startYear, startMonthNum - 1, 1);
+                    const endMonthDate = new Date(endYear, endMonthNum, 1);
+                    
+                    while (currentMonth < endMonthDate) {
+                        months.push(new Date(currentMonth));
+                        currentMonth.setMonth(currentMonth.getMonth() + 1);
+                    }
+                    
+                    return months;
+                },
+                
+                getMoonPhase(date) {
+                    // Simplified moon phase calculation
+                    const year = date.getFullYear();
+                    const month = date.getMonth() + 1;
+                    const day = date.getDate();
+                    
+                    // Rough calculation of moon age (0-29.5 days)
+                    const c = Math.floor(year / 100);
+                    let y = year % 100;
+                    let l = ((month + 9) % 12) + 1;
+                    let m = Math.floor(3.44 + (0.933 * l) + (0.034 * y) + (0.007 * c));
+                    let moonAge = (0.33 + day + (1.73 * m)) % 29.53;
+                    
+                    // Determine phase
+                    if (moonAge < 1.84566) return { name: "New Moon", class: "new", background: "transparent", border: true };
+                    if (moonAge < 5.53699) return { name: "Waxing Crescent", class: "waxing-crescent", background: `linear-gradient(90deg, transparent 50%, ${this.textColor} 50%)` };
+                    if (moonAge < 9.22831) return { name: "First Quarter", class: "first-quarter", background: this.textColor };
+                    if (moonAge < 12.91963) return { name: "Waxing Gibbous", class: "waxing-gibbous", background: "radial-gradient(circle at 75% 50%, transparent 50%, " + this.textColor + " 50%)" };
+                    if (moonAge < 16.61096) return { name: "Full Moon", class: "full", background: this.textColor };
+                    if (moonAge < 20.30228) return { name: "Waning Gibbous", class: "waning-gibbous", background: "radial-gradient(circle at 25% 50%, transparent 50%, " + this.textColor + " 50%)" };
+                    if (moonAge < 23.99361) return { name: "Last Quarter", class: "last-quarter", background: this.textColor };
+                    if (moonAge < 27.68493) return { name: "Waning Crescent", class: "waning-crescent", background: `linear-gradient(90deg, ${this.textColor} 50%, transparent 50%)` };
+                    return { name: "New Moon", class: "new", background: "transparent", border: true };
+                },
+                
+                exportToPDF() {
+                    // In a real app, you would use a PDF generation library like jsPDF or window.print()
+                    alert("In a complete application, this would generate and download a PDF. For this demo, please use the Print function.");
+                },
+                
+                backToSettings() {
+                    this.generating = false;
+                },
+                
+                resetSettings() {
+                    // View Mode
+                    this.viewMode = 'monthly';
+                    
+                    // Date Range
+                    const today = new Date();
+                    this.startDate = today.toISOString().split('T')[0];
+                    this.endDate = new Date(today.setDate(today.getDate() + 7)).toISOString().split('T')[0];
+                    this.startMonth = today.toISOString().slice(0, 7);
+                    this.endMonth = new Date(today.setMonth(today.getMonth() + 1)).toISOString().slice(0, 7);
+                    
+                    // Layout Settings
+                    this.weekStartsOn = '0';
+                    this.orientation = 'portrait';
+                    this.layoutStyle = 'minimalist';
+                    
+                    // Daily View Options
+                    this.showQuote = true;
+                    this.showMoonPhase = true;
+                    this.timeFormat = '24h';
+                    this.startTime = '08:00';
+                    this.endTime = '18:00';
+                    this.timeInterval = '30';
+                    this.dailyContent = 'both';
+                    
+                    // Monthly View Options
+                    this.showHolidays = true;
+                    this.showMoonPhases = true;
+                    this.country = 'US';
+                    
+                    // Theme Settings
+                    this.fontFamily = 'font-inter';
+                    this.fontSize = 'text-base';
+                    this.textColor = '#3f3844';
+                    this.gridColor = '#e2e8f0';
+                    this.backgroundColor = '#ffffff';
+                },
+                
+                applyTheme(theme) {
+                    switch (theme) {
+                        case 'default':
+                            this.textColor = '#3f3844';
+                            this.gridColor = '#e2e8f0';
+                            this.backgroundColor = '#ffffff';
+                            break;
+                        case 'dark':
+                            this.textColor = '#e2e8f0';
+                            this.gridColor = '#4a5568';
+                            this.backgroundColor = '#1a202c';
+                            break;
+                        case 'pastel':
+                            this.textColor = '#5a3d2b';
+                            this.gridColor = '#d1c7b7';
+                            this.backgroundColor = '#fff4e6';
+                            break;
+                        case 'grayscale':
+                            this.textColor = '#333333';
+                            this.gridColor = '#cccccc';
+                            this.backgroundColor = '#ffffff';
+                            break;
+                    }
                 }
-                
-                dayElement.innerHTML = contentHTML + `
-                    <div class="mt-8 pt-4 border-t text-sm text-gray-500">
-                        <p>Daily Calendar Generator - ${new Date().getFullYear()}</p>
-                    </div>
-                `;
-                
-                calendarPreview.appendChild(dayElement);
-            });
-        }
-        
-        // Generate time slots for the schedule section
-        function generateTimeSlots() {
-            let html = '';
-            for (let hour = 8; hour <= 20; hour++) {
-                const time = `${hour}:00 - ${hour + 1}:00`;
-                html += `
-                    <div class="flex items-center">
-                        <div class="w-24 font-medium text-gray-700">${time}</div>
-                        <div class="flex-grow h-8 border-b border-gray-200"></div>
-                    </div>
-                `;
-            }
-            return html;
-        }
-        
-        // Format date as "Month Day, Year" (e.g., "January 1, 2023")
-        function formatDate(date) {
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
-        
-        // Print the calendar
-        function printCalendar() {
-            if (selectedDates.length === 0) {
-                alert('No calendar generated to print');
-                return;
-            }
-            
-            const printContents = calendarPreview.innerHTML;
-            const originalContents = document.body.innerHTML;
-            
-            document.body.innerHTML = printContents;
-            window.print();
-            document.body.innerHTML = originalContents;
-            
-            // Reattach event listeners
-            generateRangeBtn.addEventListener('click', generateRangeCalendar);
-            addDateBtn.addEventListener('click', addSingleDate);
-            generateIndividualBtn.addEventListener('click', generateIndividualCalendar);
-            printCalendarBtn.addEventListener('click', printCalendar);
-            exportPDFBtn.addEventListener('click', exportToPDF);
-            clearCalendarBtn.addEventListener('click', clearCalendar);
-        }
-        
-        // Export calendar to PDF
-        async function exportToPDF() {
-            if (selectedDates.length === 0) {
-                alert('No calendar generated to export');
-                return;
-            }
-            
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-            
-            const calendarDays = document.querySelectorAll('.calendar-day');
-            
-            for (let i = 0; i < calendarDays.length; i++) {
-                const day = calendarDays[i];
-                
-                // Use html2canvas to capture the day as an image
-                const canvas = await html2canvas(day, {
-                    scale: 2,
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true
-                });
-                
-                const imgData = canvas.toDataURL('image/png');
-                
-                // Add the image to the PDF
-                if (i > 0) {
-                    pdf.addPage();
-                }
-                
-                // Calculate dimensions to fit A4
-                const imgWidth = 210; // A4 width in mm
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            }
-            
-            // Save the PDF
-            pdf.save('daily-calendar.pdf');
-        }
-        
-        // Clear the calendar
-        function clearCalendar() {
-            selectedDates = [];
-            updateSelectedDatesList();
-            calendarPreview.innerHTML = '<p class="text-gray-500 text-center">Your calendar will appear here after generation</p>';
-        }
-        
-        // Initialize
-        updateSelectedDatesList();
+            }));
+        });
     </script>
 </body>
 </html>
