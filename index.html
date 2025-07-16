@@ -261,6 +261,16 @@
                     </button>
                 </div>
             </div>
+ 
+            <!-- Print/Export Buttons -->
+            <div x-show="generating && !loading" class="no-print flex gap-4 justify-end">
+                <button @click="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <!-- <button @click="exportToPDF" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button> -->
+            </div>
             
             <!-- Calendar Preview/Output -->
             <div class="w-full lg:w-2/3 flex flex-col gap-4">
@@ -291,16 +301,6 @@
                             <div x-html="dailyCalendarHTML" class="calendar-print"></div>
                         </template>
                     </div>
-                </div>
-                
-                <!-- Print/Export Buttons -->
-                <div x-show="generating && !loading" class="no-print flex gap-4 justify-end">
-                    <button @click="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
-                        <i class="fas fa-print"></i> Print
-                    </button>
-                    <button @click="exportToPDF" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
-                        <i class="fas fa-file-pdf"></i> Export PDF
-                    </button>
                 </div>
             </div>
         </div>
