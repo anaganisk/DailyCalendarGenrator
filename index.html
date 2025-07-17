@@ -35,8 +35,17 @@
             .calendar-print {
                 break-inside: avoid;
             }
+        }
+        @media print {
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+
+            .calendar-page,
             .daily-page {
                 page-break-after: always;
+                break-inside: avoid;
             }
         }
     </style>
