@@ -261,24 +261,31 @@
                     </button>
                 </div>
             </div>
- 
-            <!-- Print/Export Buttons -->
-            <div x-show="generating && !loading" class="no-print flex gap-4 justify-end">
-                <button @click="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
-                    <i class="fas fa-print"></i> Print
-                </button>
-                <!-- <button @click="exportToPDF" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex items-center gap-2">
-                    <i class="fas fa-file-pdf"></i> Export PDF
-                </button> -->
+          
+            <!-- Calendar Generating -->
+            <div class="no-print w-full lg:w-2/3 flex flex-col gap-4" x-show="loading">
+                <!-- Calendar Output Container -->
+                <div class="bg-white p-4 rounded-lg shadow-md overflow-auto">
+                    <!-- Loading State -->
+                    <div class="text-center py-10">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                        <p>Generating calendar...</p>
+                    </div>
+                </div>
             </div>
             
             <!-- Calendar Preview/Output -->
-            <div class="w-full lg:w-2/3 flex flex-col gap-4">
+            <div class="w-full lg:w-2/3 flex flex-col gap-4" x-show="generating && !loading">
                 <div class="no-print flex justify-between items-center mb-2">
                     <h2 class="text-xl font-semibold text-indigo-700">Preview</h2>
-                    <button x-show="generating" @click="backToSettings" class="px-4 py-2 bg-indigo-600 text-white rounded-md">
+                    <div class="flex justify-end">
+                      <button x-show="generating" @click="backToSettings" class="m-2 px-4 py-2 bg-indigo-600 text-white rounded-md">
                         Back to Settings
-                    </button>
+                      </button>
+                      <button @click="window.print()" class="m-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+                        <i class="fas fa-print"></i> Print
+                      </button>
+                    </div>
                 </div>
                 
                 <!-- Calendar Output Container -->
